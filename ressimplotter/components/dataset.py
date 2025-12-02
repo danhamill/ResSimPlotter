@@ -1,0 +1,156 @@
+from dataclasses import dataclass
+from typing import Optional
+from pathlib import Path
+import pandas as pd
+from ressimplotter.components.timeseries import TimeSeries
+from ressimplotter.dss_integration import DSSReader
+
+@dataclass
+class Dataset:
+    """Class for representing a geographical location."""
+
+    name: str
+    parameter: str
+    path: Optional[Path] | str = None # will be loaded after simulation is created
+    timeseries: Optional[TimeSeries] = None  # Will be loaded from DSS after simulation is created
+
+    def __str__(self):
+        # Handle path display
+        if self.path:
+            if isinstance(self.path, Path):
+                path_display = str(self.path.name)  # Just filename for Path objects
+            else:
+                path_display = str(self.path)
+        else:
+            path_display = "None"
+        
+        # Handle timeseries display
+        if self.timeseries is None:
+            ts_info = "not loaded"
+        else:
+            try:
+                length = len(self.timeseries.values) if self.timeseries.values is not None else 0
+                start = getattr(self.timeseries, 'start_date', 'Unknown')
+                units = getattr(self.timeseries, 'units', '')
+                units_str = f", {units}" if units else ""
+                ts_info = f"{length} records from {start}{units_str}"
+            except Exception:
+                ts_info = "loaded but error reading details"
+        
+        return f"Dataset({self.parameter} at {self.name}: {ts_info}, path={path_display})"
+    
+    def load_timeseries_from_dss(self, simulation) -> None:
+        """Load time series data from DSS file using the simulation object."""
+
+        # Build DSS path for this location using simulation's time_step
+        dss_path = f"//{self.name}/{self.parameter}//{simulation.time_step}/{simulation.build_fpart()}/"
+        # self.timeseries.path = dss_path
+        
+        # Get the DSS file path from simulation
+        dss_file_path = Path(simulation.dssFilePath)
+
+        
+        # TODO: Actually load data from DSS file
+        # This is where we would integrate with the DSS reading functionality
+        # For now, we'll prepare the structure for when DSS integration is ready
+        if dss_file_path.exists():
+            try:
+                print(f"Ready to load from DSS file: {dss_file_path}")
+                print(f"DSS path: {dss_path}")
+                
+                dssreader = DSSReader(dss_file_path)
+                tsc = dssreader.read_time_series(dss_path)
+                self.timeseries = tsc
+                self.path = dss_path
+
+            except Exception as e:
+                print(f"Error loading from DSS: {e}")
+        else:
+            print(f"DSS file not found: {dss_file_path}")
+
+    def load_reservoir_timeseries_from_dss(self, dss_file_path: Path, reservoir_dss_code: str, 
+                                           time_step: str, fpart: str) -> None:
+        """Load time series data from DSS file for this specific dataset.
+        
+        Args:
+            dss_file_path: Path to the DSS file
+            reservoir_dss_code: DSS B-part identifier for the reservoir
+            time_step: Time step (e.g., "1HOUR")
+            fpart: DSS F-part identifier (e.g., "C:000084|RID_F03A--0")
+        """
+        
+        if not dss_file_path.exists():
+            print(f"DSS file not found: {dss_file_path}")
+            return
+            
+        try:
+            dssreader = DSSReader(dss_file_path)
+            
+            # Build DSS path for this specific dataset
+            dss_path = f"//{reservoir_dss_code}-POOL/{self.parameter}//{time_step}/{fpart}/"
+            
+            print(f"Loading dataset {self.name} from DSS path: {dss_path}")
+            tsc = dssreader.read_time_series(dss_path)
+            
+            self.timeseries = tsc
+            self.path = dss_path
+            
+        except Exception as e:
+            print(f"Error loading dataset {self.name} from DSS: {e}")
+            # Set empty values so tests can check if loading was attempted
+            self.timeseries = None
+            self.path = dss_path
+    
+    def to_dataframe(self) -> pd.DataFrame:
+        """
+        Convert the dataset's timeseries data to a pandas DataFrame.
+        
+        Returns:
+            pandas.DataFrame: DataFrame with datetime index and values column,
+                            or empty DataFrame if no timeseries data is loaded.
+        
+        Raises:
+            ValueError: If timeseries data has not been loaded yet.
+        """
+        if self.timeseries is None:
+            raise ValueError(f"No timeseries data loaded for dataset '{self.name}'. "
+                           f"Call load_timeseries_from_dss() or load_reservoir_timeseries_from_dss() first.")
+        
+        # Use the TimeSeriesContainer's built-in to_dataframe method
+        df = self.timeseries.to_dataframe()
+        
+        # Set datetime as index for time series analysis
+        df = df.set_index('datetime')
+        
+        # Rename value column to be more descriptive
+        df = df.rename(columns={'value': f'{self.parameter}'})
+        
+        # Add metadata as attributes
+        df.attrs['name'] = self.name
+        df.attrs['parameter'] = self.parameter
+        df.attrs['path'] = self.path
+        df.attrs['units'] = getattr(self.timeseries, 'units', 'Unknown')
+        df.attrs['data_type'] = getattr(self.timeseries, 'data_type', 'Unknown')
+        
+        return df
+    
+    def to_dataframe_with_metadata(self) -> pd.DataFrame:
+        """
+        Convert to DataFrame with additional metadata columns.
+        
+        Returns:
+            pandas.DataFrame: DataFrame with datetime, value, and metadata columns.
+        """
+        if self.timeseries is None:
+            raise ValueError(f"No timeseries data loaded for dataset '{self.name}'. "
+                           f"Call load_timeseries_from_dss() or load_reservoir_timeseries_from_dss() first.")
+        
+        # Get base DataFrame
+        df = self.timeseries.to_dataframe()
+        
+        # Add metadata columns
+        df['name'] = self.name
+        df['parameter'] = self.parameter
+        df['units'] = getattr(self.timeseries, 'units', 'Unknown')
+        
+        return df
