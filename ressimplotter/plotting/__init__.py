@@ -35,38 +35,41 @@ class PlotDataExtractor:
         """
         # Use simulation's method to get reservoir (handles independent system copies)
         reservoir = simulation.get_reservoir_by_name(reservoir_name)
-        
+
         if not reservoir:
             raise ValueError(f"Reservoir '{reservoir_name}' not found in simulation")
-        
+
+        operation = simulation.get_operation(reservoir_name)
+        zones = simulation.get_zones(reservoir_name)
+
         data = {}
-        
+
         # Extract elevation data
-        elev_df = reservoir.operation.get_time_series_by_name("Elevation").to_dataframe_with_metadata()
+        elev_df = operation.get_time_series_by_name("Elevation").to_dataframe_with_metadata()
         elev_df.loc[:, 'simulation'] = simulation.alternativeID
         data['elevation'] = elev_df
-        
+
         # Extract flow data
-        flow_in_df = reservoir.operation.get_time_series_by_name("Inflow").to_dataframe_with_metadata()
+        flow_in_df = operation.get_time_series_by_name("Inflow").to_dataframe_with_metadata()
         flow_in_df.loc[:, 'simulation'] = simulation.alternativeID
         data['flow_in'] = flow_in_df
-        
+
         try:
-            flow_out_df = reservoir.operation.get_time_series_by_name("Outflow").to_dataframe_with_metadata()
+            flow_out_df = operation.get_time_series_by_name("Outflow").to_dataframe_with_metadata()
         except ValueError:
             # Try alternative name
-            flow_out_df = reservoir.operation.get_time_series_by_name("Release").to_dataframe_with_metadata()
+            flow_out_df = operation.get_time_series_by_name("Release").to_dataframe_with_metadata()
         flow_out_df.loc[:, 'simulation'] = simulation.alternativeID
         data['flow_out'] = flow_out_df
-        
+
         # Extract zone data if requested
-        if include_zones and reservoir.zones:
-            zones_list = reservoir.get_zone_datasets_plot()
+        if include_zones and zones:
+            zones_list = [z.to_dataframe_with_metadata() for z in zones]
             zones_df = pd.concat(zones_list)
             zones_df.name = zones_df.name.str.replace(f"{reservoir.dss_location_code}-", "")
             zones_df.loc[:, 'simulation'] = simulation.alternativeID
             data['zones'] = zones_df
-            
+
         return data
 
 
@@ -427,10 +430,10 @@ class ComparisonPlotter(BasePlotter):
         # Create style_key using vectorized operations - much faster than row-by-row apply
         # Get all zone names from alternative simulation for special handling
         zone_names = set()
-        if alternative_sim.system and alternative_sim.system.reservoirs:
-            alt_reservoir = next((r for r in alternative_sim.system.reservoirs if r.name == reservoir_name), None)
-            if alt_reservoir and alt_reservoir.zones:
-                zone_names = {zone.name.replace(f"{alt_reservoir.dss_location_code}-", "") for zone in alt_reservoir.zones if zone}
+        alt_reservoir = alternative_sim.get_reservoir_by_name(reservoir_name)
+        alt_zones = alternative_sim.get_zones(reservoir_name)
+        if alt_reservoir and alt_zones:
+            zone_names = {zone.name.replace(f"{alt_reservoir.dss_location_code}-", "") for zone in alt_zones if zone}
         
         # Create style_key: zones get their own name, simulations get simulation name
         combined_df['style_key'] = combined_df['simulation'].where(
