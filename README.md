@@ -41,49 +41,74 @@ ressimplotter/
 ## Quick Start
 
 ```python
-from ressimplotter.simulation import Simulation
-from ressimplotter.components.dataset import Dataset
-from ressimplotter.components.reservoir import Reservoir
-from ressimplotter.collections.operation import Operation
-from ressimplotter.collections.system import System
-from ressimplotter.plotting import SimulationPlotter, PlotConfig
-from ressimplotter.utils import create_standard_reservoir_operation
 from pathlib import Path
 
-# Create a reservoir with standard operations
-reservoir = Reservoir(
+from ressimplotter import (
+    Dataset, Reservoir, System, Simulation, SimulationPlotter,
+    create_standard_reservoir_operation, create_firo_reservoir_operation,
+)
+
+# 1. Physical topology — reservoir dimensions and DSS location codes only.
+nbb = Reservoir(
     name="NBB",
     full_name="New Bullards Bar",
     dss_location_code="NEW BULLARDS BAR",
-    operation=create_standard_reservoir_operation(),
-    zones=[
-        Dataset(name="NEW BULLARDS BAR-FIRO TARGET", parameter="ELEV-ZONE"),
-        Dataset(name="NEW BULLARDS BAR-FLOOD CONTROL", parameter="ELEV-ZONE")
-    ]
 )
-
-# Create a system containing the reservoir
 system = System(
     name="Reservoir System",
-    reservoirs=[reservoir],
-    downstream_locations=[]
+    reservoirs=[nbb],
+    downstream_locations=[],
 )
 
-# Create and load simulation data
-simulation = Simulation(
+# 2. Run-time policy — which Operation and zone datasets apply for THIS run.
+#    Different simulations can bind different operations/zones to the same
+#    physical reservoir (e.g. FIRO alternative vs Standard baseline).
+alternative_sim = Simulation(
     collectionID=84,
     alternativeID="RID_F03A",
     dssFilePath=Path("path/to/your/data.dss"),
-    system=system
+    system=system,
+    operations={"NBB": create_firo_reservoir_operation()},
+    zones={"NBB": [
+        Dataset(name="NEW BULLARDS BAR-FIRO TARGET", parameter="ELEV-ZONE"),
+    ]},
 )
 
-simulation.load_system_data()
+baseline_sim = Simulation(
+    collectionID=84,
+    alternativeID="SS_FV03S-P75",
+    dssFilePath=Path("path/to/your/data.dss"),
+    system=system,
+    operations={"NBB": create_standard_reservoir_operation()},
+)
 
-# Create standardized plots
+alternative_sim.load_system_data()
+baseline_sim.load_system_data()
+
+# 3. Plot.
 plotter = SimulationPlotter()
-plot = plotter.plot_reservoir(simulation, "NBB")
-plot.show()
+plotter.plot_reservoir(alternative_sim, "NBB").show()
+plotter.plot_comparison(
+    alternative_simulation=alternative_sim,
+    baseline_simulations=[baseline_sim],
+    baseline_shortname=["FVA"],
+    reservoir_name="NBB",
+).show()
 ```
+
+> The public API is re-exported from the top-level ``ressimplotter`` package,
+> so a single ``from ressimplotter import ...`` covers the common case. Deep
+> imports (``ressimplotter.simulation.Simulation`` etc.) still work.
+
+### Data model in one paragraph
+
+``Reservoir`` describes a physical dam (name, DSS location code, optional
+ranges). ``Operation`` is a policy — the set of pool time series a given run
+reads (elevation, in/out flow, storage). Zones are time-varying zone-elevation
+datasets (e.g. a FIRO target curve). Both ``operations`` and ``zones`` live on
+``Simulation`` (keyed by ``Reservoir.name``), so each run can bind a different
+policy to the same physical reservoir. Static horizontal reference elevations
+(top of dam, spillway crest) are drawn from ``PlotConfig.zone_elevations``.
 
 ## Installation
 
@@ -204,17 +229,18 @@ import ressimplotter
 ### Core Components
 
 - **`Dataset`** - Individual time series data with DSS integration
-- **`Reservoir`** - Physical reservoir with operational characteristics  
+- **`Reservoir`** - Physical reservoir description (name, DSS location code, ranges)
 - **`TimeSeries`** - Core time series data structure
 
 ### Collections
 
-- **`Operation`** - Groups related datasets for a reservoir operation
-- **`System`** - Manages multiple reservoirs and downstream locations
+- **`Operation`** - A named group of datasets (e.g. Standard, FIRO) that a run reads
+- **`System`** - A named group of physical reservoirs and downstream locations
 
 ### Simulation
 
-- **`Simulation`** - Top-level orchestrator for loading and managing simulation data
+- **`Simulation`** - Binds run-time policy (``operations`` and ``zones``, keyed by
+  reservoir name) to a topology and a DSS file. Handles loading.
 
 ### Plotting
 
@@ -229,11 +255,13 @@ The package provides seamless integration with HEC-DSS files:
 
 ```python
 # DSS paths are automatically constructed
-# Format: //LOCATION/PARAMETER/DATE/TIMESTEP/SCENARIO/
+# Format: //LOCATION/PARAMETER//TIMESTEP/F-PART/
+# where F-PART = C:{collectionID:06d}|{alternativeID}[--{trialID}]
 dss_path = "//NEW BULLARDS BAR-POOL/STOR//1HOUR/C:000084|RID_F03A--0/"
 
-# Data is loaded automatically when calling load_timeseries_from_dss()
-reservoir.load_timeseries_from_dss(simulation)
+# Data is loaded on the simulation; each dataset in each registered operation
+# (and each zone dataset) is fetched with one DSS read.
+simulation.load_system_data()
 ```
 
 ## Contributing
