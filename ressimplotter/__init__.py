@@ -6,12 +6,17 @@ __email__ = "daniel.d.hamill@USACE.army.mil"
 
 from ressimplotter.components.dataset import Dataset
 from ressimplotter.components.reservoir import Reservoir
-from ressimplotter.components.timeseries import TimeSeries
 from ressimplotter.collections.operation import Operation
 from ressimplotter.collections.system import System
-from ressimplotter.simulation import Simulation
+from ressimplotter.simulation import Simulation, LoadReport
 from ressimplotter.plotting import SimulationPlotter
 from ressimplotter.plotting.config import PlotConfig, PlotPresets
+from ressimplotter.dss_integration import (
+    DSSLoadError,
+    DSSFileNotFound,
+    DSSPathNotFound,
+    DSSReadError,
+)
 from ressimplotter.utils import (
     create_firo_reservoir_operation,
     create_standard_reservoir_operation,
@@ -19,6 +24,11 @@ from ressimplotter.utils import (
 
 __all__ = [
     "Dataset",
+    "DSSFileNotFound",
+    "DSSLoadError",
+    "DSSPathNotFound",
+    "DSSReadError",
+    "LoadReport",
     "Operation",
     "PlotConfig",
     "PlotPresets",
@@ -26,7 +36,6 @@ __all__ = [
     "Simulation",
     "SimulationPlotter",
     "System",
-    "TimeSeries",
     "create_firo_reservoir_operation",
     "create_standard_reservoir_operation",
 ]

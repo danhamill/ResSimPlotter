@@ -16,63 +16,6 @@ from ressimplotter.simulation import Simulation
 from ressimplotter.plotting.config import PlotConfig, SimulationStyle, ColorSchemes
 
 
-class PlotDataExtractor:
-    """Handles data extraction and preparation for plotting."""
-    
-    @staticmethod
-    def extract_reservoir_data(simulation: Simulation, reservoir_name: str, 
-                              include_zones: bool = True) -> Dict[str, pd.DataFrame]:
-        """
-        Extract plotting data for a reservoir from a simulation.
-        
-        Args:
-            simulation: The simulation object
-            reservoir_name: Name of the reservoir to extract data for
-            include_zones: Whether to include zone data
-            
-        Returns:
-            Dictionary with 'elevation', 'flow_in', 'flow_out', and optionally 'zones' DataFrames
-        """
-        # Use simulation's method to get reservoir (handles independent system copies)
-        reservoir = simulation.get_reservoir_by_name(reservoir_name)
-
-        if not reservoir:
-            raise ValueError(f"Reservoir '{reservoir_name}' not found in simulation")
-
-        operation = simulation.get_operation(reservoir_name)
-        zones = simulation.get_zones(reservoir_name)
-
-        data = {}
-
-        # Extract elevation data
-        elev_df = operation.get_time_series_by_name("Elevation").to_dataframe_with_metadata()
-        elev_df.loc[:, 'simulation'] = simulation.alternativeID
-        data['elevation'] = elev_df
-
-        # Extract flow data
-        flow_in_df = operation.get_time_series_by_name("Inflow").to_dataframe_with_metadata()
-        flow_in_df.loc[:, 'simulation'] = simulation.alternativeID
-        data['flow_in'] = flow_in_df
-
-        try:
-            flow_out_df = operation.get_time_series_by_name("Outflow").to_dataframe_with_metadata()
-        except ValueError:
-            # Try alternative name
-            flow_out_df = operation.get_time_series_by_name("Release").to_dataframe_with_metadata()
-        flow_out_df.loc[:, 'simulation'] = simulation.alternativeID
-        data['flow_out'] = flow_out_df
-
-        # Extract zone data if requested
-        if include_zones and zones:
-            zones_list = [z.to_dataframe_with_metadata() for z in zones]
-            zones_df = pd.concat(zones_list)
-            zones_df.name = zones_df.name.str.replace(f"{reservoir.dss_location_code}-", "")
-            zones_df.loc[:, 'simulation'] = simulation.alternativeID
-            data['zones'] = zones_df
-
-        return data
-
-
 class BasePlotter(ABC):
     """Abstract base class for all plotters."""
     
@@ -143,20 +86,52 @@ class ReservoirPlotter(BasePlotter):
             x='shared', color='independent', strokeDash='independent'
         )
     
-    def extract_reservoir_data(self, simulation: Simulation, reservoir_name: str, 
+    def extract_reservoir_data(self, simulation: Simulation, reservoir_name: str,
                               include_zones: bool = True) -> Dict[str, pd.DataFrame]:
         """
-        Extract and prepare reservoir data for plotting. This can be used by other plotters.
-        
+        Extract and prepare reservoir data for plotting. Also used by
+        ``ComparisonPlotter`` to gather per-simulation series.
+
         Args:
             simulation: The simulation object
             reservoir_name: Name of the reservoir to extract data for
             include_zones: Whether to include zone data
-            
+
         Returns:
             Dictionary with 'elevation', 'flow_in', 'flow_out', and optionally 'zones' DataFrames
         """
-        return PlotDataExtractor.extract_reservoir_data(simulation, reservoir_name, include_zones)
+        reservoir = simulation.get_reservoir_by_name(reservoir_name)
+        if not reservoir:
+            raise ValueError(f"Reservoir '{reservoir_name}' not found in simulation")
+
+        operation = simulation.get_operation(reservoir_name)
+        zones = simulation.get_zones(reservoir_name)
+
+        data: Dict[str, pd.DataFrame] = {}
+
+        elev_df = operation.get_time_series_by_name("Elevation").to_dataframe_with_metadata()
+        elev_df.loc[:, 'simulation'] = simulation.alternativeID
+        data['elevation'] = elev_df
+
+        flow_in_df = operation.get_time_series_by_name("Inflow").to_dataframe_with_metadata()
+        flow_in_df.loc[:, 'simulation'] = simulation.alternativeID
+        data['flow_in'] = flow_in_df
+
+        try:
+            flow_out_df = operation.get_time_series_by_name("Outflow").to_dataframe_with_metadata()
+        except ValueError:
+            flow_out_df = operation.get_time_series_by_name("Release").to_dataframe_with_metadata()
+        flow_out_df.loc[:, 'simulation'] = simulation.alternativeID
+        data['flow_out'] = flow_out_df
+
+        if include_zones and zones:
+            zones_list = [z.to_dataframe_with_metadata() for z in zones]
+            zones_df = pd.concat(zones_list)
+            zones_df.name = zones_df.name.str.replace(f"{reservoir.dss_location_code}-", "")
+            zones_df.loc[:, 'simulation'] = simulation.alternativeID
+            data['zones'] = zones_df
+
+        return data
     
     def _create_elevation_plot(self, data: Dict[str, pd.DataFrame], 
                               simulation: Simulation, reservoir_name: str) -> alt.Chart:

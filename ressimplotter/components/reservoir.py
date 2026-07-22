@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import Optional, Tuple
 
 
 @dataclass
@@ -11,13 +10,12 @@ class Reservoir:
     (e.g. FIRO target curves) are run-time policies and live on the
     ``Simulation`` object, keyed by ``Reservoir.name``. Static horizontal
     reference elevations (top of dam, spillway crest, etc.) are drawn via
-    ``PlotConfig.zone_elevations``.
+    ``PlotConfig.zone_elevations``. Plot axis domains live on ``PlotConfig``
+    (``elevation_range``), not here.
     """
     name: str                                              # Short name (e.g., "ORO", "NBB")
     full_name: str                                         # Full name (e.g., "Oroville")
     dss_location_code: str                                 # DSS B-part identifier
-    flow_range: Optional[Tuple[float, float]] = None       # Min/max flow range
-    elevation_range: Optional[Tuple[float, float]] = None  # Min/max elevation range
 
     def __str__(self):
         return (

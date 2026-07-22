@@ -123,3 +123,6 @@ Thumbs.db
 
 *.png
 *.svg
+
+results/plots
+plotTest.py
