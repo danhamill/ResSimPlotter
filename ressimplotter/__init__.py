@@ -16,6 +16,7 @@ from ressimplotter.dss_integration import (
     DSSFileNotFound,
     DSSPathNotFound,
     DSSReadError,
+    set_debug_level,
 )
 from ressimplotter.utils import (
     create_firo_reservoir_operation,
@@ -38,4 +39,5 @@ __all__ = [
     "System",
     "create_firo_reservoir_operation",
     "create_standard_reservoir_operation",
+    "set_debug_level",
 ]
