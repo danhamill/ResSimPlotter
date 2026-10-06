@@ -4,6 +4,7 @@ DSS Integration module for the Robustness Viewer using HEC-DSS Python.
 This module provides DSS file operations using the official HEC-DSS Python library
 and integrates with our object-oriented system architecture.
 """
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import List, Dict, Optional, Union
 from pathlib import Path
@@ -18,6 +19,34 @@ try:
 except ImportError:
     HEC_DSS_AVAILABLE = False
     logging.warning("HEC-DSS Python library not available. Install with: pip install hecdss")
+
+
+_DEBUG_LEVEL = None
+
+
+def set_debug_level(level) -> None:
+    """Set the hecdss debug level applied to every DSS file opened by this package.
+
+    The value is passed through to ``HecDss.set_debug_level`` unvalidated.
+    Pass ``None`` to leave hecdss defaults untouched.
+    """
+    global _DEBUG_LEVEL
+    _DEBUG_LEVEL = level
+
+
+@contextmanager
+def _open_dss(path, debug_level=None):
+    """Open a DSS file, applying the debug level (explicit or global)."""
+    level = debug_level if debug_level is not None else _DEBUG_LEVEL
+    with HecDss(str(path)) as dss:
+        if level is not None:
+            if hasattr(dss, "set_debug_level"):
+                dss.set_debug_level(level)
+            else:
+                logging.warning(
+                    "Installed hecdss does not support set_debug_level; ignoring."
+                )
+        yield dss
 
 
 class DSSLoadError(Exception):
@@ -130,7 +159,7 @@ class DSSReader:
         legacy attribute names for older ``hecdss`` versions.
         """
         try:
-            with HecDss(str(self.file_path)) as dss:
+            with _open_dss(self.file_path) as dss:
                 catalog = dss.get_catalog()
                 for attr in ("uncondensed_paths", "rawCatalog"):
                     paths = getattr(catalog, attr, None)
@@ -158,7 +187,7 @@ class DSSReader:
         path_str = dss_path.to_string() if isinstance(dss_path, DssPath) else dss_path
 
         try:
-            with HecDss(str(self.file_path)) as dss:
+            with _open_dss(self.file_path) as dss:
                 ts_data = dss.get(path_str)
         except KeyError as e:
             # hecdss raises KeyError when the requested path is not in the file.
@@ -247,7 +276,7 @@ class DSSReader:
         results = {}
         
         try:
-            with HecDss(str(self.file_path)) as dss:
+            with _open_dss(self.file_path) as dss:
                 for path in paths:
                     try:
                         ts_data = dss.get(path)
