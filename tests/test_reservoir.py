@@ -7,6 +7,8 @@ from ressimplotter.collections.operation import Operation
 from ressimplotter.simulation import Simulation
 from ressimplotter.dss_integration import TimeSeriesContainer
 
+TEST_DSS = Path(__file__).resolve().parent.parent / "test_data" / "test_data.dss"
+
 
 @pytest.fixture
 def normal_operation():
@@ -46,7 +48,7 @@ def sample_simulation(sample_reservoir, normal_operation, sample_reservoir_zones
     return Simulation(
         collectionID=84,
         alternativeID="RID_F03A",
-        dssFilePath=Path(r"test_data\test_data.dss"),
+        dssFilePath=TEST_DSS,
         trialID="0",
         reservoirs=[sample_reservoir],
         operations={sample_reservoir.name: normal_operation},
