@@ -126,3 +126,5 @@ Thumbs.db
 
 results/plots
 plotTest.py
+
+.ruff_cache/

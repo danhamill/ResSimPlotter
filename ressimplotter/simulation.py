@@ -21,11 +21,16 @@ class LoadReport:
     Attributes are populated whether or not ``strict=True``. Use ``ok`` to
     check success and ``format()`` to render a human-readable summary.
     """
+
     simulation_id: str
     dss_file: str
     successes: List[str] = field(default_factory=list)
-    missing_paths: List[Tuple[str, str]] = field(default_factory=list)   # (dataset_name, dss_path)
-    read_errors: List[Tuple[str, str, str]] = field(default_factory=list)  # (dataset_name, dss_path, msg)
+    missing_paths: List[Tuple[str, str]] = field(
+        default_factory=list
+    )  # (dataset_name, dss_path)
+    read_errors: List[Tuple[str, str, str]] = field(
+        default_factory=list
+    )  # (dataset_name, dss_path, msg)
     missing_reservoirs: List[str] = field(default_factory=list)
     fpart_missing: Optional[str] = None
     similar_fparts: List[str] = field(default_factory=list)
@@ -40,15 +45,19 @@ class LoadReport:
         )
 
     def format(self) -> str:
-        lines = [f"Load failures for simulation {self.simulation_id}",
-                 f"  DSS file: {self.dss_file}"]
+        lines = [
+            f"Load failures for simulation {self.simulation_id}",
+            f"  DSS file: {self.dss_file}",
+        ]
         if self.fpart_missing:
             lines.append(f"  F-part '{self.fpart_missing}' not found in DSS catalog.")
             if self.similar_fparts:
                 lines.append("  Similar F-parts present:")
                 for fp in self.similar_fparts:
                     lines.append(f"    {fp}")
-            lines.append("  Hint: check alternativeID / trialID (and collectionID, if used) for typos.")
+            lines.append(
+                "  Hint: check alternativeID / trialID (and collectionID, if used) for typos."
+            )
         if self.missing_reservoirs:
             lines.append("  Operations registered for reservoirs not in the system:")
             for name in self.missing_reservoirs:
@@ -231,7 +240,9 @@ class Simulation:
         for location in self._own_downstream_locations():
             location.load_timeseries_from_dss(self)
 
-    def load_system_data(self, *, strict: bool = True, preflight: bool = True) -> "LoadReport":
+    def load_system_data(
+        self, *, strict: bool = True, preflight: bool = True
+    ) -> "LoadReport":
         """Load timeseries for downstream locations and every registered
         reservoir operation and zone dataset.
 
@@ -259,7 +270,9 @@ class Simulation:
 
         # File-level check first — no point continuing if the file is missing.
         if not dss_file_path.exists():
-            report.read_errors.append(("<file>", str(dss_file_path), "DSS file not found"))
+            report.read_errors.append(
+                ("<file>", str(dss_file_path), "DSS file not found")
+            )
             if strict:
                 report.raise_if_failed()
             return report
@@ -278,12 +291,17 @@ class Simulation:
             except Exception as e:
                 # Catalog reads shouldn't be fatal on their own — fall through
                 # to the per-dataset loads which will surface any real issue.
-                report.read_errors.append(("<catalog>", "", f"catalog read failed: {e}"))
+                report.read_errors.append(
+                    ("<catalog>", "", f"catalog read failed: {e}")
+                )
 
         # Downstream locations (loaded in place, not deep-copied)
         for location in self._own_downstream_locations():
-            self._safe_load(lambda loc=location: loc.load_timeseries_from_dss(self),
-                            dataset_name=location.name, report=report)
+            self._safe_load(
+                lambda loc=location: loc.load_timeseries_from_dss(self),
+                dataset_name=location.name,
+                report=report,
+            )
 
         # Reservoir operations
         reservoirs_by_name = {r.name: r for r in self._own_reservoirs()}
@@ -295,11 +313,13 @@ class Simulation:
 
             for dataset in operation.datasets:
                 self._safe_load(
-                    lambda ds=dataset, r=reservoir: ds.load_reservoir_timeseries_from_dss(
-                        dss_file_path=dss_file_path,
-                        reservoir_dss_code=r.dss_location_code,
-                        time_step=self.time_step,
-                        fpart=fpart,
+                    lambda ds=dataset, r=reservoir: (
+                        ds.load_reservoir_timeseries_from_dss(
+                            dss_file_path=dss_file_path,
+                            reservoir_dss_code=r.dss_location_code,
+                            time_step=self.time_step,
+                            fpart=fpart,
+                        )
                     ),
                     dataset_name=dataset.name,
                     report=report,
@@ -318,8 +338,11 @@ class Simulation:
 
         # Observed records (own file or this simulation's file)
         for obs in self._observed_copy:
-            self._safe_load(lambda o=obs: o.load_from_dss(self),
-                            dataset_name=obs.name, report=report)
+            self._safe_load(
+                lambda o=obs: o.load_from_dss(self),
+                dataset_name=obs.name,
+                report=report,
+            )
 
         if strict:
             report.raise_if_failed()
@@ -341,11 +364,14 @@ class Simulation:
             report.successes.append(dataset_name)
 
     @staticmethod
-    def _suggest_similar_fparts(target: str, fparts: List[str], limit: int = 8) -> List[str]:
+    def _suggest_similar_fparts(
+        target: str, fparts: List[str], limit: int = 8
+    ) -> List[str]:
         """Return up to ``limit`` catalog F-parts most similar to ``target``.
 
         Uses difflib so we surface likely typo candidates (e.g. RIG_F03X vs
         RIG_F03E) without needing an exact prefix match.
         """
         import difflib
+
         return difflib.get_close_matches(target, fparts, n=limit, cutoff=0.5)

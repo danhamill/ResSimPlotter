@@ -1,38 +1,39 @@
-[tool.poetry]
+[project]
 name = "ressimplotter"
 version = "0.1.0"
 description = "A Python package for reservoir simulation plotting and visualization"
-authors = ["daniel.d.hamill@USACE.army.mil"]
+authors = [
+    { name = "Daniel Hamill", email = "daniel.d.hamill@USACE.army.mil" },
+]
 readme = "README.md"
-packages = [
-    {include = "ressimplotter"}
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.10,<4.0"
+dependencies = [
+    "altair>=5.0",
+    "hecdss>=0.1.28",
+    "numpy>=1.20",
+    "pandas>=1.3",
+    "vl-convert-python>=1.0",
 ]
-include = [
-    "examples/*.py",
-    "examples/*.dss"
+
+[dependency-groups]
+dev = [
+    "black>=22.0.0,<23",
+    "flake8>=4.0.0,<5",
+    "mypy>=0.950,<0.951",
+    "pytest>=7.0.0,<8",
+    "ruff>=0.17.5",
 ]
-
-[tool.poetry.dependencies]
-python = ">=3.10,<4.0"
-numpy = ">=1.20"
-pandas = ">=1.3"
-hecdss = ">=0.1.28"
-altair = ">=5.0"
-vl-convert-python = ">=1.0"
-
-[tool.poetry.extras]
-examples = []  # This enables the examples to be installed
-
-[tool.poetry.group.dev.dependencies]
-pytest = "^7.0.0"
-black = "^22.0.0"
-flake8 = "^4.0.0"
-mypy = "^0.950"
-ruff = "^0.1.0"
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["uv_build>=0.12.3,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "ressimplotter"
+module-root = ""
+source-include = ["examples/**"]
 
 [tool.black]
 line-length = 88

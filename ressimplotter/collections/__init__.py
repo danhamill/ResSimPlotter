@@ -4,4 +4,4 @@
 from .operation import Operation
 # Note: System not imported here to avoid circular imports with components
 
-__all__ = ['Operation']
+__all__ = ["Operation"]

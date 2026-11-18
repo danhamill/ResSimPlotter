@@ -4,4 +4,4 @@
 from .dataset import Dataset, ObservedDataset
 from .reservoir import Reservoir
 
-__all__ = ['Dataset', 'ObservedDataset', 'Reservoir']
+__all__ = ["Dataset", "ObservedDataset", "Reservoir"]

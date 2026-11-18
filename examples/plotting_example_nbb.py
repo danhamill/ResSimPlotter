@@ -1,4 +1,5 @@
 """Example usage of the standardized plotting module (NBB, Standard op)."""
+
 from pathlib import Path
 
 import altair as alt
@@ -13,18 +14,18 @@ from ressimplotter import (
     create_standard_reservoir_operation,
 )
 
-alt.renderers.enable('browser')
+alt.renderers.enable("browser")
 
 
 RESERVOIR_CONFIG = {
-    'NBB': {
-        'full_name': 'New Bullards Bar',
-        'elevation_range': (1880, 1980),
-        'zones': {
-            'flood_control': 1956,
-            'top_of_dam': 1965,
-            'bottom_firo': 1894,
-            'top_firo': 1929,
+    "NBB": {
+        "full_name": "New Bullards Bar",
+        "elevation_range": (1880, 1980),
+        "zones": {
+            "flood_control": 1956,
+            "top_of_dam": 1965,
+            "bottom_firo": 1894,
+            "top_firo": 1929,
         },
     },
 }
@@ -76,12 +77,12 @@ def main():
     baseline_sim1.load_system_data()
 
     plotter = SimulationPlotter()
-    nbb_cfg = RESERVOIR_CONFIG['NBB']
+    nbb_cfg = RESERVOIR_CONFIG["NBB"]
 
     detailed_config = PlotPresets.detailed_analysis()
-    detailed_config.elevation_range = nbb_cfg['elevation_range']
-    detailed_config.reservoir_full_name = nbb_cfg['full_name']
-    detailed_config.zone_elevations = nbb_cfg['zones']
+    detailed_config.elevation_range = nbb_cfg["elevation_range"]
+    detailed_config.reservoir_full_name = nbb_cfg["full_name"]
+    detailed_config.zone_elevations = nbb_cfg["zones"]
     detailed_config.height = 250
     detailed_config.width = 500
 
@@ -99,7 +100,7 @@ def main():
     plotter.plot_comparison(
         alternative_simulation=alternative_sim,
         baseline_simulations=[baseline_sim1],
-        baseline_shortname=['FVA'],
+        baseline_shortname=["FVA"],
         reservoir_name="NBB",
         config=detailed_config,
     ).show()

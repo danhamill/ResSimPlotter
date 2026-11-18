@@ -1,4 +1,5 @@
 """Tests for strict-load behavior and structured DSS load errors."""
+
 from pathlib import Path
 
 import pytest
@@ -34,11 +35,14 @@ def _standard_op() -> Operation:
     )
 
 
-def _make_sim(alternative_id: str = GOOD_ALT,
-              collection_id: int = GOOD_COLLECTION,
-              dss_path: Path = TEST_DSS) -> Simulation:
-    nbb = Reservoir(name="NBB", full_name="New Bullards Bar",
-                    dss_location_code="NEW BULLARDS BAR")
+def _make_sim(
+    alternative_id: str = GOOD_ALT,
+    collection_id: int = GOOD_COLLECTION,
+    dss_path: Path = TEST_DSS,
+) -> Simulation:
+    nbb = Reservoir(
+        name="NBB", full_name="New Bullards Bar", dss_location_code="NEW BULLARDS BAR"
+    )
     system = System(
         name="test",
         reservoirs=[nbb],
@@ -91,8 +95,9 @@ def test_bad_alternative_id_report_in_nonstrict_mode():
 
 def test_missing_reservoir_in_operations_reported():
     """Operation registered for a reservoir not in the system."""
-    nbb = Reservoir(name="NBB", full_name="New Bullards Bar",
-                    dss_location_code="NEW BULLARDS BAR")
+    nbb = Reservoir(
+        name="NBB", full_name="New Bullards Bar", dss_location_code="NEW BULLARDS BAR"
+    )
     system = System(name="test", reservoirs=[nbb], downstream_locations=[])
     sim = Simulation(
         collectionID=GOOD_COLLECTION,
@@ -100,7 +105,7 @@ def test_missing_reservoir_in_operations_reported():
         trialID="0",
         dssFilePath=TEST_DSS,
         system=system,
-        operations={"ORO": _standard_op()},   # ORO not in system
+        operations={"ORO": _standard_op()},  # ORO not in system
     )
     with pytest.raises(DSSLoadError) as exc:
         sim.load_system_data()
@@ -109,7 +114,7 @@ def test_missing_reservoir_in_operations_reported():
 
 def test_successful_load_returns_ok_report():
     sim = _make_sim()
-    report = sim.load_system_data()   # strict=True; must not raise
+    report = sim.load_system_data()  # strict=True; must not raise
     assert isinstance(report, LoadReport)
     assert report.ok
     assert report.successes

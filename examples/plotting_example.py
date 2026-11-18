@@ -1,4 +1,5 @@
 """Example usage of the standardized plotting module (Oroville, Standard op)."""
+
 from pathlib import Path
 
 import altair as alt
@@ -13,18 +14,18 @@ from ressimplotter import (
     create_standard_reservoir_operation,
 )
 
-alt.renderers.enable('browser')
+alt.renderers.enable("browser")
 
 
 RESERVOIR_CONFIG = {
-    'ORO': {
-        'full_name': 'Oroville',
-        'elevation_range': (840, 920),
-        'zones': {
-            'flood_control': 850,
-            'top_conservation': 900,
-            'surcharge': 910,
-            'top_of_dam': 920,
+    "ORO": {
+        "full_name": "Oroville",
+        "elevation_range": (840, 920),
+        "zones": {
+            "flood_control": 850,
+            "top_conservation": 900,
+            "surcharge": 910,
+            "top_of_dam": 920,
         },
     },
 }
@@ -67,12 +68,12 @@ def main():
     baseline_sim1.load_system_data()
 
     plotter = SimulationPlotter()
-    oro_cfg = RESERVOIR_CONFIG['ORO']
+    oro_cfg = RESERVOIR_CONFIG["ORO"]
 
     detailed_config = PlotPresets.detailed_analysis()
-    detailed_config.elevation_range = oro_cfg['elevation_range']
-    detailed_config.reservoir_full_name = oro_cfg['full_name']
-    detailed_config.zone_elevations = oro_cfg['zones']
+    detailed_config.elevation_range = oro_cfg["elevation_range"]
+    detailed_config.reservoir_full_name = oro_cfg["full_name"]
+    detailed_config.zone_elevations = oro_cfg["zones"]
     detailed_config.height = 250
     detailed_config.width = 500
 
@@ -86,7 +87,7 @@ def main():
     plotter.plot_comparison(
         alternative_simulation=alternative_sim,
         baseline_simulations=[baseline_sim1],
-        baseline_shortname=['FVA'],
+        baseline_shortname=["FVA"],
         reservoir_name="ORO",
         config=detailed_config,
     ).show()

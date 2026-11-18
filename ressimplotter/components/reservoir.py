@@ -13,9 +13,10 @@ class Reservoir:
     ``PlotConfig.zone_elevations``. Plot axis domains live on ``PlotConfig``
     (``elevation_range``), not here.
     """
-    name: str                                              # Short name (e.g., "ORO", "NBB")
-    full_name: str                                         # Full name (e.g., "Oroville")
-    dss_location_code: str                                 # DSS B-part identifier
+
+    name: str  # Short name (e.g., "ORO", "NBB")
+    full_name: str  # Full name (e.g., "Oroville")
+    dss_location_code: str  # DSS B-part identifier
 
     def __str__(self):
         return (
