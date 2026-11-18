@@ -5,6 +5,8 @@ from pathlib import Path
 from ressimplotter.simulation import Simulation
 from ressimplotter.dss_integration import TimeSeriesContainer
 
+TEST_DSS = Path(__file__).resolve().parent.parent / "test_data" / "test_data.dss"
+
 
 @pytest.fixture
 def sample_dataset():
@@ -16,7 +18,7 @@ def sample_simulation(sample_dataset):
     return Simulation(
         collectionID=84,
         alternativeID="RID_F03A",
-        dssFilePath=Path(r"test_data\test_data.dss"),
+        dssFilePath=TEST_DSS,
         downstream_locations=[sample_dataset],
         trialID="0",
         reservoirs=None,
@@ -173,7 +175,7 @@ def test_dataset_to_dataframe_with_metadata(sample_simulation):
 def _no_collection_sim(**kw):
     return Simulation(
         alternativeID="V1",
-        dssFilePath=Path(r"test_data\test_data.dss"),
+        dssFilePath=TEST_DSS,
         time_step="1Day",
         **kw,
     )

@@ -8,6 +8,8 @@ from ressimplotter.collections.system import System
 from ressimplotter.simulation import Simulation
 from ressimplotter.dss_integration import TimeSeriesContainer
 
+TEST_DSS = Path(__file__).resolve().parent.parent / "test_data" / "test_data.dss"
+
 
 @pytest.fixture
 def sample_reservoir_zones():
@@ -67,7 +69,7 @@ def sample_simulation(sample_system, sample_reservoir_zones):
     return Simulation(
         collectionID=84,
         alternativeID="RID_F03A",
-        dssFilePath=Path(r"test_data\test_data.dss"),
+        dssFilePath=TEST_DSS,
         system=sample_system,
         trialID="0",
         operations={
