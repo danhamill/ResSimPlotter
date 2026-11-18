@@ -48,7 +48,7 @@ class LoadReport:
                 lines.append("  Similar F-parts present:")
                 for fp in self.similar_fparts:
                     lines.append(f"    {fp}")
-            lines.append("  Hint: check collectionID / alternativeID / trialID for typos.")
+            lines.append("  Hint: check alternativeID / trialID (and collectionID, if used) for typos.")
         if self.missing_reservoirs:
             lines.append("  Operations registered for reservoirs not in the system:")
             for name in self.missing_reservoirs:
@@ -66,6 +66,9 @@ class LoadReport:
     def raise_if_failed(self) -> None:
         if not self.ok:
             raise DSSLoadError(self.format(), simulation_id=self.simulation_id)
+
+
+FPART_WIDTH = 11  # fixed F-part width for models without a collectionID
 
 
 @dataclass
@@ -89,11 +92,13 @@ class Simulation:
     single throwaway simulation without ceremony.
     """
 
-    collectionID: int
     alternativeID: str
     dssFilePath: str | Path
     time_step: str = "1HOUR"
     trialID: Optional[str] = None
+    # Optional: models without collections build the F-part from
+    # alternativeID/trialID only (fixed width, see ``build_fpart``).
+    collectionID: Optional[int] = None
 
     # Physical topology. Prefer ``system`` for multi-simulation runs; use the
     # ad-hoc lists below only for one-off simulations. If ``system`` is set it
@@ -107,13 +112,32 @@ class Simulation:
     zones: Dict[str, List[Dataset]] = field(default_factory=dict)
 
     def __str__(self):
+        if self.collectionID is None:
+            return (
+                f"Simulation(alternativeID={self.alternativeID}, "
+                f"trialID={self.trialID})"
+            )
         return (
             f"Simulation(collectionID={self.collectionID}, "
             f"alternativeID={self.alternativeID}, trialID={self.trialID})"
         )
 
     def build_fpart(self) -> str:
-        """Build the F-part of a DSS path based on simulation identifiers."""
+        """Build the F-part of a DSS path based on simulation identifiers.
+
+        With a ``collectionID``: ``C:{collectionID:06d}|{alternativeID}[--{trialID}]``.
+        Without one: ``alternativeID`` and ``trialID`` (default ``"0"``) joined
+        by ``-`` padding to a fixed width of ``FPART_WIDTH``, e.g. ``V1--------0``.
+        """
+        if self.collectionID is None:
+            trial = "0" if self.trialID is None else str(self.trialID)
+            pad = FPART_WIDTH - len(self.alternativeID) - len(trial)
+            if pad < 1:
+                raise ValueError(
+                    f"alternativeID '{self.alternativeID}' and trialID '{trial}' "
+                    f"are too long for a {FPART_WIDTH}-character F-part."
+                )
+            return f"{self.alternativeID}{'-' * pad}{trial}"
         if self.trialID is None:
             return f"C:{self.collectionID:06d}|{self.alternativeID}"
         return f"C:{self.collectionID:06d}|{self.alternativeID}--{self.trialID}"

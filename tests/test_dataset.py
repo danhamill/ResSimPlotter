@@ -156,3 +156,29 @@ def test_dataset_to_dataframe_with_metadata(sample_simulation):
     # Check data content
     assert df['name'].iloc[0] == "FEATHER R + YUBA R"
     assert df['parameter'].iloc[0] == "FLOW"
+# Collection-less models: F-part is alternativeID + '-' padding + trialID (11 chars)
+def _no_collection_sim(**kw):
+    return Simulation(
+        alternativeID="V1",
+        dssFilePath=Path(r"test_data\test_data.dss"),
+        time_step="1Day",
+        **kw,
+    )
+
+def test_build_fpart_without_collection_pads_to_13():
+    assert _no_collection_sim(trialID="0").build_fpart() == "V1--------0"
+
+def test_build_fpart_without_collection_defaults_trial_to_zero():
+    assert _no_collection_sim().build_fpart() == "V1--------0"
+
+def test_build_fpart_without_collection_too_long_raises():
+    sim = Simulation(alternativeID="A" * 12, dssFilePath="x.dss", trialID="0")
+    with pytest.raises(ValueError):
+        sim.build_fpart()
+
+def test_read_record_without_collection_id():
+    sim = _no_collection_sim()
+    ds = Dataset(name="Pine Flat Dam-Pool", parameter="Stor")
+    ds.load_timeseries_from_dss(sim)
+    assert ds.timeseries is not None
+    assert len(ds.timeseries.values) > 0
