@@ -4,7 +4,7 @@ __version__ = "0.1.0"
 __author__ = "Daniel Hamill"
 __email__ = "daniel.d.hamill@USACE.army.mil"
 
-from ressimplotter.components.dataset import Dataset
+from ressimplotter.components.dataset import Dataset, ObservedDataset
 from ressimplotter.components.reservoir import Reservoir
 from ressimplotter.collections.operation import Operation
 from ressimplotter.collections.system import System
@@ -29,6 +29,7 @@ __all__ = [
     "DSSPathNotFound",
     "DSSReadError",
     "LoadReport",
+    "ObservedDataset",
     "Operation",
     "PlotConfig",
     "PlotPresets",

@@ -108,6 +108,8 @@ class ColorSchemes:
         'Storage': '#d7191c',  # Red for main simulation, matches elevation
     }
 
+    OBSERVED = '#000000'  # Black for observed records
+
     FLOW_TYPES = {
         'INFLOW': '#7D7979',  # Gray for inflow
         'OUTFLOW': '#d7191c'  # Red for outflow

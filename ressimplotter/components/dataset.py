@@ -162,3 +162,59 @@ class Dataset:
         df['units'] = getattr(self.timeseries, 'units', 'Unknown')
         
         return df
+
+OBSERVED_PANELS = ('elevation', 'storage', 'inflow', 'outflow')
+
+
+@dataclass
+class ObservedDataset:
+    """An observed DSS record overlaid on a simulation's elevation, storage or flow plot.
+
+    ``dss_path`` is the full DSS pathname. ``dss_file`` is the file holding the
+    record; when ``None`` the simulation's own DSS file is used. ``panel``
+    selects the plot it is drawn on: ``'elevation'``, ``'storage'``, ``'inflow'`` or ``'outflow'`` (the last two
+    go on the flow plot).
+    """
+
+    name: str
+    dss_path: str
+    panel: str
+    dss_file: Optional[Path | str] = None
+    timeseries: Optional[TimeSeriesContainer] = None
+
+    def __post_init__(self):
+        if self.panel not in OBSERVED_PANELS:
+            raise ValueError(
+                f"ObservedDataset '{self.name}': panel must be one of {OBSERVED_PANELS}, "
+                f"got '{self.panel}'"
+            )
+
+    def load_from_dss(self, simulation) -> None:
+        """Read the record from ``dss_file`` (or the simulation's DSS file).
+
+        Raises:
+            DSSFileNotFound, DSSPathNotFound, DSSReadError: as for ``Dataset``.
+        """
+        dss_file_path = Path(self.dss_file or simulation.dssFilePath)
+        if not dss_file_path.exists():
+            raise DSSFileNotFound(
+                f"DSS file not found: {dss_file_path}",
+                dss_file=dss_file_path,
+                dss_path=self.dss_path,
+                dataset_name=self.name,
+            )
+        try:
+            self.timeseries = DSSReader(dss_file_path).read_time_series(self.dss_path)
+        except DSSLoadError as e:
+            e.dataset_name = self.name
+            raise
+
+    def to_dataframe_with_metadata(self) -> pd.DataFrame:
+        if self.timeseries is None:
+            raise ValueError(f"No timeseries data loaded for observed dataset '{self.name}'.")
+        df = self.timeseries.to_dataframe()
+        parts = self.dss_path.split('/')
+        df['name'] = self.name
+        df['parameter'] = parts[3] if len(parts) > 3 else ''
+        df['units'] = getattr(self.timeseries, 'units', 'Unknown')
+        return df

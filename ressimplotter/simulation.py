@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 import copy
 
-from ressimplotter.components.dataset import Dataset
+from ressimplotter.components.dataset import Dataset, ObservedDataset
 from ressimplotter.components.reservoir import Reservoir
 from ressimplotter.collections.operation import Operation
 from ressimplotter.collections.system import System
@@ -111,6 +111,10 @@ class Simulation:
     operations: Dict[str, Operation] = field(default_factory=dict)
     zones: Dict[str, List[Dataset]] = field(default_factory=dict)
 
+    # Observed records overlaid on the elevation/storage plots. They may live
+    # in this simulation's DSS file or a separate one (see ObservedDataset).
+    observed: List[ObservedDataset] = field(default_factory=list)
+
     def __str__(self):
         if self.collectionID is None:
             return (
@@ -191,6 +195,11 @@ class Simulation:
     def _loaded_zones(self) -> Dict[str, List[Dataset]]:
         return getattr(self, "_zones_copy", None) or self.zones
 
+    def get_observed(self, panel: Optional[str] = None) -> List[ObservedDataset]:
+        """Return observed datasets, optionally only those for ``panel``."""
+        observed = getattr(self, "_observed_copy", None) or self.observed
+        return [o for o in observed if panel is None or o.panel == panel]
+
     # ------------------------------------------------------------------
     # Loading
     # ------------------------------------------------------------------
@@ -203,6 +212,8 @@ class Simulation:
             self._operations_copy = copy.deepcopy(self.operations)
         if not hasattr(self, "_zones_copy") or self._zones_copy is None:
             self._zones_copy = copy.deepcopy(self.zones)
+        if not hasattr(self, "_observed_copy") or self._observed_copy is None:
+            self._observed_copy = copy.deepcopy(self.observed)
 
     def load_downstream_location_data(self):
         """Load timeseries for downstream locations only.
@@ -304,6 +315,11 @@ class Simulation:
                     dataset_name=zone_dataset.name,
                     report=report,
                 )
+
+        # Observed records (own file or this simulation's file)
+        for obs in self._observed_copy:
+            self._safe_load(lambda o=obs: o.load_from_dss(self),
+                            dataset_name=obs.name, report=report)
 
         if strict:
             report.raise_if_failed()

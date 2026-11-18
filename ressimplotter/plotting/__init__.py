@@ -142,6 +142,22 @@ class ReservoirPlotter(BasePlotter):
         flow_out_df.loc[:, 'simulation'] = simulation.alternativeID
         data['flow_out'] = flow_out_df
 
+        # Observed records, clipped to the modeled time window
+        window = (elev_df.datetime.min(), elev_df.datetime.max())
+        for panel in ('elevation', 'storage', 'inflow', 'outflow'):
+            frames = []
+            for obs in simulation.get_observed(panel):
+                if obs.timeseries is None:
+                    continue
+                obs_df = obs.to_dataframe_with_metadata()
+                obs_df = obs_df[(obs_df.datetime >= window[0]) & (obs_df.datetime <= window[1])]
+                if obs_df.empty:
+                    continue
+                obs_df.loc[:, 'simulation'] = simulation.alternativeID
+                frames.append(obs_df)
+            if frames:
+                data[f'observed_{panel}'] = pd.concat(frames, ignore_index=True)
+
         if include_storage:
             storage_df = operation.get_time_series_by_name("Storage").to_dataframe_with_metadata()
             storage_df.loc[:, 'simulation'] = simulation.alternativeID
@@ -165,7 +181,9 @@ class ReservoirPlotter(BasePlotter):
     def _create_storage_plot(self, data: Dict[str, pd.DataFrame],
                              simulation: Simulation, reservoir_name: str) -> alt.Chart:
         """Create storage plot (acre-ft) with STOR-ZONE series and reference lines."""
-        merge = pd.concat([data['storage'], data.get('storage_zones')], ignore_index=True)
+        frames = [data['storage'], data.get('storage_zones'), data.get('observed_storage')]
+        merge = pd.concat(frames, ignore_index=True)
+        observed_names = set(data['observed_storage'].name) if 'observed_storage' in data else set()
 
         storage_range = self.config.storage_range
         if storage_range is None:
@@ -174,8 +192,10 @@ class ReservoirPlotter(BasePlotter):
         nearest = alt.selection_point(nearest=True, on="pointerover", fields=["datetime"], empty=False)
 
         unique_names = sorted(merge.groupby('name').name.first().to_list())
-        colors = [ColorSchemes.STORAGE.get(n, '#7D7979') for n in unique_names]
-        stroke_patterns = [[1, 0] if n in ColorSchemes.STORAGE else [4, 4] for n in unique_names]
+        colors = [ColorSchemes.OBSERVED if n in observed_names else ColorSchemes.STORAGE.get(n, '#7D7979')
+                  for n in unique_names]
+        stroke_patterns = [[1, 0] if (n in ColorSchemes.STORAGE or n in observed_names) else [4, 4]
+                           for n in unique_names]
 
         start = self.format_date_for_scale(merge.datetime.min())
         end = self.format_date_for_scale(merge.datetime.max())
@@ -216,6 +236,9 @@ class ReservoirPlotter(BasePlotter):
         plot_data = [data['elevation']]
         if 'zones' in data:
             plot_data.append(data['zones'])
+        if 'observed_elevation' in data:
+            plot_data.append(data['observed_elevation'])
+        observed_names = set(data['observed_elevation'].name) if 'observed_elevation' in data else set()
         
         merge = pd.concat(plot_data, ignore_index=True)
         
@@ -232,6 +255,10 @@ class ReservoirPlotter(BasePlotter):
         unique_names = sorted(merge.groupby('name').name.first().to_list())
         colors = self._get_elevation_colors(unique_names)
         stroke_patterns = self._get_elevation_stroke_patterns(unique_names)
+        for i, n in enumerate(unique_names):
+            if n in observed_names:
+                colors[i] = ColorSchemes.OBSERVED
+                stroke_patterns[i] = [1, 0]
         
         # Main elevation plot
         plot = alt.Chart(merge).mark_line().encode(
@@ -300,6 +327,21 @@ class ReservoirPlotter(BasePlotter):
                          simulation: Simulation, reservoir_name: str) -> alt.Chart:
         """Create flow plot."""
         flow_df = pd.concat([data['flow_in'], data['flow_out']], ignore_index=True)
+
+        # Observed flow series join the main chart so they appear in its legend
+        names = ['FLOW-OUT', 'FLOW-IN']
+        colors = [ColorSchemes.FLOW_TYPES['OUTFLOW'], ColorSchemes.FLOW_TYPES['INFLOW']]
+        dashes = [[1, 0], [4, 4]]
+        for key, dash in (('observed_outflow', [1, 0]), ('observed_inflow', [4, 4])):
+            if key not in data:
+                continue
+            obs_df = data[key].copy()
+            for n in obs_df['name'].unique():
+                names.append(n)
+                colors.append(ColorSchemes.OBSERVED)
+                dashes.append(dash)
+            obs_df['parameter'] = obs_df['name']
+            flow_df = pd.concat([flow_df, obs_df], ignore_index=True)
         
         # Create interactive selection
         nearest = alt.selection_point(nearest=True, on="pointerover", fields=["datetime"], empty=False)
@@ -317,16 +359,10 @@ class ReservoirPlotter(BasePlotter):
             ),
             color=alt.Color('parameter:N', 
                           title='Flow Type' if self.config.show_legend else None,
-                          scale=alt.Scale(
-                              domain=['FLOW-OUT', 'FLOW-IN'],
-                              range=[ColorSchemes.FLOW_TYPES['OUTFLOW'], ColorSchemes.FLOW_TYPES['INFLOW']]
-                          ),
+                          scale=alt.Scale(domain=names, range=colors),
                           legend=alt.Legend(orient=self.config.legend_position) if self.config.show_legend else None),
             strokeDash=alt.StrokeDash('parameter:N', 
-                                   scale=alt.Scale(
-                                       domain=['FLOW-OUT', 'FLOW-IN'],
-                                       range=[[1,0], [4,4]]
-                                   ),
+                                   scale=alt.Scale(domain=names, range=dashes),
                                    legend=None)
         ).properties(width=self.config.width, height=self.config.height)
         
@@ -343,9 +379,9 @@ class ReservoirPlotter(BasePlotter):
                 ] + [alt.Tooltip('datetime:T', type='temporal', format='%Y-%m-%d %H:%M')],
             ).add_params(nearest)
             plot = plot + rules
-        
+
         return plot.resolve_scale(color='shared')
-    
+
     def _create_zone_rules(self, merge: pd.DataFrame, elev_range: Tuple[int, int], 
                           reservoir_name: str) -> alt.Chart:
         """Create zone reference lines using config data."""
