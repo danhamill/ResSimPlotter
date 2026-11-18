@@ -16,6 +16,7 @@ class PlotConfig:
     show_legend: bool = True
     legend_position: str = 'right'
     title_include_simulation: bool = True
+    title_suffix: Optional[str] = None  # Appended to the simulation label in titles (e.g. 'V1-2017')
     
     # Optional simulation-specific data
     elevation_range: Optional[Tuple[float, float]] = None  # (min, max) elevation for Y-axis

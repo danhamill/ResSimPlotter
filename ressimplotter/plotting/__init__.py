@@ -285,11 +285,12 @@ class ReservoirPlotter(BasePlotter):
     
     def _get_title(self, reservoir_name: str, simulation: Simulation) -> str:
         """Generate title including simulation info."""
+        reservoir_display_name = self.config.reservoir_full_name or reservoir_name
+        suffix = self.config.title_suffix
         if self.config.title_include_simulation:
-            reservoir_display_name = self.config.reservoir_full_name or reservoir_name
-            return f"{reservoir_display_name} (simulation: {simulation.alternativeID})"
-        else:
-            return self.config.reservoir_full_name or reservoir_name
+            label = f"{simulation.alternativeID}-{suffix}" if suffix else simulation.alternativeID
+            return f"{reservoir_display_name} (simulation: {label})"
+        return f"{reservoir_display_name} - {suffix}" if suffix else reservoir_display_name
     
     def _create_interactive_rules(self, merge: pd.DataFrame, nearest) -> alt.Chart:
         """Create interactive hover rules."""
@@ -315,11 +316,12 @@ class ComparisonPlotter(BasePlotter):
 
     def _get_title(self, reservoir_name: str, simulation: Simulation) -> str:
         """Generate title including simulation info."""
+        reservoir_display_name = self.config.reservoir_full_name or reservoir_name
+        suffix = self.config.title_suffix
         if self.config.title_include_simulation:
-            reservoir_display_name = self.config.reservoir_full_name or reservoir_name
-            return f"{reservoir_display_name} (simulation: {simulation.alternativeID})"
-        else:
-            return self.config.reservoir_full_name or reservoir_name
+            label = f"{simulation.alternativeID}-{suffix}" if suffix else simulation.alternativeID
+            return f"{reservoir_display_name} (simulation: {label})"
+        return f"{reservoir_display_name} - {suffix}" if suffix else reservoir_display_name
     
     
     def _get_simulation_colors(self, alternative_sim: Simulation, baseline_sims: List[Simulation]) -> Dict[str, str]:
