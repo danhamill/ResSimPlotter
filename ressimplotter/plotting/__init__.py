@@ -32,14 +32,15 @@ class BasePlotter(ABC):
         return date_value.strftime(format_str)
     
     def _create_zone_rules_chart(self, start_date: str, end_date: str, 
-                                zones: Dict[str, float], elev_range: Tuple[float, float]) -> alt.Chart:
+                                zones: Dict[str, float], elev_range: Tuple[float, float],
+                                value_field: str = 'elevation', axis_title: str = None) -> alt.Chart:
         """Create zone reference lines chart."""
         zone_data = []
         for zone_name, elevation in zones.items():
             if elev_range[0] <= elevation <= elev_range[1]:  # Only show zones within range
                 zone_data.extend([
-                    {'datetime': start_date, 'elevation': elevation, 'zone': zone_name},
-                    {'datetime': end_date, 'elevation': elevation, 'zone': zone_name}
+                    {'datetime': start_date, value_field: elevation, 'zone': zone_name},
+                    {'datetime': end_date, value_field: elevation, 'zone': zone_name}
                 ])
         
         if not zone_data:
@@ -56,7 +57,7 @@ class BasePlotter(ABC):
             opacity=0.5
         ).encode(
             x=alt.X('datetime:T'),
-            y=alt.Y('elevation:Q'),
+            y=alt.Y(f'{value_field}:Q', **({'title': axis_title} if axis_title else {})),
             detail='zone:N'
         )
 class ReservoirPlotter(BasePlotter):
@@ -86,8 +87,25 @@ class ReservoirPlotter(BasePlotter):
             x='shared', color='independent', strokeDash='independent'
         )
     
+    def create_operations_plot(self, simulation: Simulation, reservoir_name: str) -> alt.Chart:
+        """
+        Create a storage plot stacked above a flow plot.
+
+        Storage zone lines come from ``STOR-ZONE`` zone datasets supplied on the
+        simulation; reference lines come from ``config.zone_storages``.
+        """
+        data = self.extract_reservoir_data(
+            simulation, reservoir_name, include_zones=self.config.show_zones, include_storage=True
+        )
+        storage_plot = self._create_storage_plot(data, simulation, reservoir_name)
+        flow_plot = self._create_flow_plot(data, simulation, reservoir_name)
+        return alt.vconcat(storage_plot, flow_plot).resolve_scale(
+            x='shared', color='independent', strokeDash='independent'
+        )
+
     def extract_reservoir_data(self, simulation: Simulation, reservoir_name: str,
-                              include_zones: bool = True) -> Dict[str, pd.DataFrame]:
+                              include_zones: bool = True,
+                              include_storage: bool = False) -> Dict[str, pd.DataFrame]:
         """
         Extract and prepare reservoir data for plotting. Also used by
         ``ComparisonPlotter`` to gather per-simulation series.
@@ -124,14 +142,72 @@ class ReservoirPlotter(BasePlotter):
         flow_out_df.loc[:, 'simulation'] = simulation.alternativeID
         data['flow_out'] = flow_out_df
 
+        if include_storage:
+            storage_df = operation.get_time_series_by_name("Storage").to_dataframe_with_metadata()
+            storage_df.loc[:, 'simulation'] = simulation.alternativeID
+            data['storage'] = storage_df
+
         if include_zones and zones:
-            zones_list = [z.to_dataframe_with_metadata() for z in zones]
-            zones_df = pd.concat(zones_list)
-            zones_df.name = zones_df.name.str.replace(f"{reservoir.dss_location_code}-", "")
-            zones_df.loc[:, 'simulation'] = simulation.alternativeID
-            data['zones'] = zones_df
+            # STOR-ZONE datasets belong on the storage plot, everything else on elevation
+            for key, group in (
+                ('zones', [z for z in zones if z.parameter != 'STOR-ZONE']),
+                ('storage_zones', [z for z in zones if z.parameter == 'STOR-ZONE']),
+            ):
+                if not group:
+                    continue
+                zones_df = pd.concat([z.to_dataframe_with_metadata() for z in group])
+                zones_df.name = zones_df.name.str.replace(f"{reservoir.dss_location_code}-", "")
+                zones_df.loc[:, 'simulation'] = simulation.alternativeID
+                data[key] = zones_df
 
         return data
+
+    def _create_storage_plot(self, data: Dict[str, pd.DataFrame],
+                             simulation: Simulation, reservoir_name: str) -> alt.Chart:
+        """Create storage plot (acre-ft) with STOR-ZONE series and reference lines."""
+        merge = pd.concat([data['storage'], data.get('storage_zones')], ignore_index=True)
+
+        storage_range = self.config.storage_range
+        if storage_range is None:
+            storage_range = (0, merge['value'].max() * 1.05)
+
+        nearest = alt.selection_point(nearest=True, on="pointerover", fields=["datetime"], empty=False)
+
+        unique_names = sorted(merge.groupby('name').name.first().to_list())
+        colors = [ColorSchemes.STORAGE.get(n, '#7D7979') for n in unique_names]
+        stroke_patterns = [[1, 0] if n in ColorSchemes.STORAGE else [4, 4] for n in unique_names]
+
+        start = self.format_date_for_scale(merge.datetime.min())
+        end = self.format_date_for_scale(merge.datetime.max())
+
+        plot = alt.Chart(merge).mark_line().encode(
+            x=alt.X('datetime:T', title=None, axis=alt.Axis(format='%Y-%m-%d', labels=False)).scale(
+                domain=[start, end]
+            ),
+            y=alt.Y('value:Q', title='Storage (acre-ft)').scale(domain=storage_range),
+            color=alt.Color('name:N',
+                          title='Legend' if self.config.show_legend else None,
+                          scale=alt.Scale(domain=unique_names, range=colors),
+                          legend=alt.Legend(orient=self.config.legend_position) if self.config.show_legend else None),
+            strokeDash=alt.StrokeDash('name:N',
+                                   scale=alt.Scale(domain=unique_names, range=stroke_patterns),
+                                   legend=None)
+        ).properties(
+            title=self._get_title(reservoir_name, simulation),
+            width=self.config.width,
+            height=self.config.height
+        )
+
+        if self.config.show_zones and self.config.zone_storages:
+            plot = plot + self._create_zone_rules_chart(
+                start, end, self.config.zone_storages, storage_range,
+                value_field='storage', axis_title='Storage (acre-ft)'
+            )
+
+        if self.config.show_interactive_rules:
+            plot = plot + self._create_interactive_rules(merge, nearest)
+
+        return plot.resolve_scale(color='shared')
     
     def _create_elevation_plot(self, data: Dict[str, pd.DataFrame], 
                               simulation: Simulation, reservoir_name: str) -> alt.Chart:
@@ -699,6 +775,25 @@ class SimulationPlotter:
         plotter = ReservoirPlotter(config or self.config)
         return plotter.create_plot(simulation, reservoir_name)
     
+    def plot_operations(self, simulation: Simulation, reservoir_name: str,
+                        config: PlotConfig = None) -> alt.Chart:
+        """
+        Plot storage (acre-ft) above flow for a single reservoir.
+
+        Storage zone series must be supplied by the user as ``STOR-ZONE``
+        zone datasets; static reference lines come from ``config.zone_storages``.
+
+        Args:
+            simulation: The simulation object
+            reservoir_name: Name of reservoir to plot
+            config: Optional plot configuration
+
+        Returns:
+            Combined storage and flow plot
+        """
+        plotter = ReservoirPlotter(config or self.config)
+        return plotter.create_operations_plot(simulation, reservoir_name)
+
     def plot_comparison(self, alternative_simulation: Simulation,
                        baseline_simulations: List[Simulation],
                        baseline_shortname: List[str],

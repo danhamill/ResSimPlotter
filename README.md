@@ -259,6 +259,13 @@ The package provides seamless integration with HEC-DSS files:
 # where F-PART = C:{collectionID:06d}|{alternativeID}[--{trialID}]
 dss_path = "//NEW BULLARDS BAR-POOL/STOR//1HOUR/C:000084|RID_F03A--0/"
 
+# Models without a collection: omit collectionID. The F-part is
+# {alternativeID}{'-' padding}{trialID}, padded to a fixed 11 characters
+# (trialID defaults to "0"). Raises ValueError if the IDs are too long.
+sim = Simulation(alternativeID="V1", dssFilePath=Path("data.dss"), time_step="1Day")
+sim.build_fpart()  # "V1--------0"
+dss_path = "//Pine Flat Dam-Pool/Stor//1Day/V1--------0/"
+
 # Data is loaded on the simulation; each dataset in each registered operation
 # (and each zone dataset) is fetched with one DSS read.
 simulation.load_system_data()

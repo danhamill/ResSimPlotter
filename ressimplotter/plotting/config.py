@@ -23,6 +23,10 @@ class PlotConfig:
     reservoir_full_name: Optional[str] = None  # Full reservoir name for titles
     zone_elevations: Optional[Dict[str, float]] = None  # Zone elevations for overlays
 
+    # Used by ``plot_operations`` (storage over flow), in acre-ft
+    storage_range: Optional[Tuple[float, float]] = None  # (min, max) storage for Y-axis
+    zone_storages: Optional[Dict[str, float]] = None  # Zone storages for overlays
+
 
 @dataclass
 class SimulationStyle:
@@ -100,6 +104,10 @@ class ColorSchemes:
         'BELOW FIRO SPACE': '#7D7979'
     }
     
+    STORAGE = {
+        'Storage': '#d7191c',  # Red for main simulation, matches elevation
+    }
+
     FLOW_TYPES = {
         'INFLOW': '#7D7979',  # Gray for inflow
         'OUTFLOW': '#d7191c'  # Red for outflow
